@@ -11,3 +11,8 @@ Output:
 
 Errors :
 - I am unable to make the path totally obstacle free.
+
+Steps to Compile and Run :
+
+1. Open the terminal and navigate to the directory where you want to clone the repository. Then clone the repository 
+2. To run the program go to the terminal and navigate to the directory and run "python rrt.py"
