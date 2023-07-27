@@ -63,7 +63,7 @@ class RRT:
             d_list = [dx * dx + dy * dy for (dx, dy) in zip(dx_list, dy_list)]
 
             if min(d_list) <= (size)**2:
-                return False  
+                return False  # collision
             
         return True
     
@@ -161,6 +161,7 @@ if __name__ == "__main__":
     # Obstacles represented as [(x, y, radius)]
     obstacles = [(5, 5, 1), (3, 6, 2), (3, 8, 2), (3, 10, 2), (7, 5, 2), (9, 5, 2), (8, 10, 1)]
 
+    # Set the start and goal positions
     start_position = (0, 0)
     goal_position = (6.0, 10.0)
 
