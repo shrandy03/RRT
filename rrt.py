@@ -1,174 +1,169 @@
 import random
 import math
 import matplotlib.pyplot as plt
-import numpy as np
 
-class rrt:
-    class node:
-        def __init__(self,x,y):
-            self.x = x
-            self.y = y
-            self.parent = None
-            # for the edges
-            self.p_x = []
-            self.p_y = []
-    
-    def __init__(self,start, goal,num_obs,obs_list,edge_pace,max_iter,maxw,maxh,step_size,sample_rate = 5):
-        self.start = self.node(start[0],start[1])
-        self.goal = self.node(goal[0],goal[1])
-        self.num_obs = num_obs
-        self.obs_list = obs_list
-        self.edge_pace = edge_pace
-        self.max_iter = max_iter
-        self.node_list = None
-        self.maxw = maxw
-        self.maxh = maxh
+class Node:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.parent = None
+        self.p_x = [ ]
+        self.p_y = [ ]
+
+class RRT:
+    def __init__(self, start, goal, obstacles, max_iterations=1000, step_size=5):
+        self.start = Node(start[0], start[1])
+        self.goal = Node(goal[0], goal[1])
+        self.obstacles = obstacles
+        self.max_iterations = max_iterations
         self.step_size = step_size
-        self.sample_rate = sample_rate
+        self.nodes = [self.start]
 
-    # for path planning 
+    def distance(self, node1, node2):
+        return math.sqrt((node1.x - node2.x)**2 + (node1.y - node2.y)**2)
+    
+    def angle(self,node1,node2):
+        dx = node1.x - node2.x
+        dy = node1.y - node2.y
+        theta = math.atan2(dy, dx)
+        return theta
 
-    def path(self):
+    def nearest_node(self, random_node):
+        nearest = self.nodes[0]
+        min_distance = self.distance(random_node, nearest)
 
-        self.node_list = [self.start]
-        for i in range(self.max_iter):
-            rnd_nod = self.rnd_node()
-            near_ind = self.near_in(self.node_list,rnd_nod)
-            near_node = self.node_list[near_ind]
-            d,t = self.dist_ang(near_node,rnd_nod)
-            new_node = self.create_edge(near_node,rnd_nod,d,t,)
+        for node in self.nodes:
+            distance = self.distance(random_node, node)
+            if distance < min_distance:
+                nearest = node
+                min_distance = distance
 
-            if (self.check_coll(self.obs_list,new_node)):
-                self.node_list.append(new_node)
+        return nearest
 
-            if i%5 :
-                self.draw(rnd_nod)
+    def new_node(self, nearest, random_node):
+        distance = self.distance(nearest, random_node)
+        if distance <= self.step_size:
+            return random_node
+        else:
+            theta = math.atan2(random_node.y - nearest.y, random_node.x - nearest.x)
+            x = nearest.x + self.step_size * math.cos(theta)
+            y = nearest.y + self.step_size * math.sin(theta)
+            return Node(x, y)
+
+    def is_collision_free(self, node1, node2):
+        for obstacle in self.obstacles:
+            distance_to_obstacle = self.distance(Node(obstacle[0], obstacle[1]), node1)
+            if distance_to_obstacle <= obstacle[2]:
+                return False
+
+        node = self.edge(node1,node2)
+        for (ox, oy, size) in self.obstacles:
+            dx_list = [ox - x for x in node.p_x]
+            dy_list = [oy - y for y in node.p_y]
+            d_list = [dx * dx + dy * dy for (dx, dy) in zip(dx_list, dy_list)]
+
+            if min(d_list) <= (size)**2:
+                return False  
             
-            final_d = math.sqrt((self.node_list[-1].x - self.goal.x)**2 + (self.node_list[-1].y - self.goal.y)**2)
-            if(final_d)<= 3.0 :
-                d,t = self.dist_ang(self.node_list[-1],self.goal)
-                final_n = self.create_edge(self.node_list[-1],self.goal,d,t)
-                
-                if(self.check_coll(self.obs_list,final_n)):
-                    return self.final_path()
-            
-            
-            
-        return None
-
-
-    def rnd_node(self):
-        rnd = self.node(random.uniform(self.maxw,self.maxh),random.uniform(self.maxw,self.maxh))
-        return rnd
-    
-    def dist_ang(self,from_n,to_n):
-        d = math.sqrt((from_n.x - to_n.x)**2 + (from_n.y - to_n.y)**2)
-        t = math.atan2((from_n.y - to_n.y), (from_n.x - to_n.x))
-        a = [d,t]
-        return a
-    
-    def create_edge(self,from_n,to_n,d,t):
-        new = self.node(from_n.x,from_n.y)
-        new.p_x = [new.x]
-        new.p_y = [new.y]
-        step = self.step_size
-        pace = self.edge_pace
-        if(step >d):
-            step = d
-        
-        n = math.floor(step/pace)
-
-        for i in range(n):
-            new.x += (pace*math.cos(t))
-            new.y += (pace*math.sin(t))
-            new.p_x.append(new.x)
-            new.p_y.append(new.y)
-        
-        D,T = self.dist_ang(new,to_n)
-        if D<= pace :
-            new.p_x.append(to_n.x)
-            new.p_y.append(to_n.y)
-            new.x = to_n.x
-            new.y = to_n.y
-        
-        new.parent = from_n
-        return new
-    
-    def final_path(self):
-        l = len(self.node_list) - 1
-        final_c = [[self.goal.x,self.goal.y]]
-        node = self.node_list[l]
-        while node.parent != None:
-            final_c.append([node.x,node.y])
-            node = node.parent
-        final_c.append([node.x,node.y])
-        return final_c
-    
-    # to visualize the code
-    def draw(self,rnd_node = None):
-        plt.clf()
-        plt.gcf().canvas.mpl_connect('key_release_event',lambda event: [exit(0) if event.key == 'escape' else None])
-        
-        if rnd_node != None:
-            plt.plot(rnd_node.x, rnd_node.y, "^k")
-        
-        for i in self.node_list:
-            if i.parent:
-                plt.plot(i.x,i.y,"-g")
-        
-        for (x,y,s) in self.obs_list:
-            self.plot_circle(x, y, s)
-
-        plt.plot(self.start.x, self.start.y, "xr")
-        plt.plot(self.goal.x, self.goal.y, "xr")
-        plt.axis("equal")
-        plt.axis([-2, 15, -2, 15])
-        plt.grid(True)
-        plt.pause(0.01)  
-
-    @staticmethod
-    def plot_circle(x, y, size, color="-b"):  # pragma: no cover
-        deg = list(range(0, 360, 5))
-        deg.append(0)
-        xl = [x + size * math.cos(np.deg2rad(d)) for d in deg]
-        yl = [y + size * math.sin(np.deg2rad(d)) for d in deg]
-        plt.plot(xl, yl, color)
-
-    @staticmethod
-    def near_in(node_list,rnd):
-        node_dis = [ math.sqrt((rnd.x - i.x)**2 + (rnd.y - i.y)**2) for i in node_list]
-        min_d = node_dis.index(min(node_dis))
-        return min_d  
-    
-    @staticmethod
-    def check_coll(obs_list,new_n):
-        if new_n is None:
-            return False
-        
-        for (x,y,s) in obs_list:
-                dx = [ (x - i)**2  for i in new_n.p_x]
-                dy = [ (y - i)**2  for i in new_n.p_y]
-                d = [ math.sqrt(d_x + d_y) for (d_x,d_y) in zip(dx,dy) ]
-                if min(d) <= s :
-                    return False
-        
         return True
+    
+    def edge(self,from_node,to_node,e = 3.0):
+        new_node = Node(from_node.x, from_node.y)
+        d = self.distance(new_node, to_node)
+        theta = self.angle(new_node,to_node)
 
+        new_node.p_x = [new_node.x]
+        new_node.p_y = [new_node.y]
 
-obstacleList = [(5, 5, 1), (3, 6, 2), (3, 8, 2), (3, 10, 2), (7, 5, 2),
-                    (9, 5, 2), (8, 10, 1)]  # [x, y, radius]
+        if e > d:
+            e = d
 
-RRT = rrt(start = [0,0], goal = [6.0,10.0] , num_obs = 7 , obs_list = obstacleList, edge_pace=0.5, max_iter=500,maxw = -2,maxh=15,step_size=3.0)
+        n_expand = math.floor(e / 0.5)
 
-p = RRT.path()
+        for _ in range(n_expand):
+            new_node.x += 0.5 * math.cos(theta)
+            new_node.y += 0.5 * math.sin(theta)
+            new_node.p_x.append(new_node.x)
+            new_node.p_y.append(new_node.y)
 
-if p is None:
-    print("None")
-else :
-    print("found path!!")
-    RRT.draw()
-    plt.plot([x for (x, y) in p], [y for (x, y) in p], '-r')
-    plt.grid(True)
-    plt.pause(0.01)  # Need for Mac
-    plt.show()
-    print()
+        d = self.distance(new_node, to_node)
+        if d <= 0.5:
+            new_node.p_x.append(to_node.x)
+            new_node.p_y.append(to_node.y)
+            new_node.x = to_node.x
+            new_node.y = to_node.y
+
+        new_node.parent = from_node
+
+        return new_node
+
+    def generate_random_node(self):
+        if random.randint(0, 100) > 10:
+            return Node(random.randint(-2, 15), random.randint(-2, 15))
+        else:
+            return self.goal
+
+    def find_path(self):
+        for i in range(self.max_iterations):
+            random_node = self.generate_random_node()
+            nearest_node = self.nearest_node(random_node)
+            new_node = self.new_node(nearest_node, random_node)
+
+            if self.is_collision_free(nearest_node, new_node):
+                new_node.parent = nearest_node
+                self.nodes.append(new_node)
+
+                if self.distance(new_node, self.goal) <= self.step_size:
+                    self.goal.parent = new_node
+                    self.nodes.append(self.goal)
+                    break
+
+    def get_path(self):
+        path = []
+        current = self.goal
+        while current is not None:
+            path.append((current.x, current.y))
+            current = current.parent
+        return list(reversed(path))
+
+    def plot_tree(self):
+        for node in self.nodes:
+            if node.parent is not None:
+                plt.plot([node.x, node.parent.x], [node.y, node.parent.y], "k-")
+
+    def plot_obstacles(self):
+        for obstacle in self.obstacles:
+            circle = plt.Circle((obstacle[0], obstacle[1]), obstacle[2], color="red")
+            plt.gcf().gca().add_artist(circle)
+
+    def plot_path(self, path):
+        x_values, y_values = zip(*path)
+        plt.plot(x_values, y_values, "r-")
+
+    def plot_rrt(self):
+        plt.gca().set_aspect('equal', adjustable='box')
+        plt.grid()
+
+        self.plot_obstacles()
+        self.plot_tree()
+        path = self.get_path()
+        self.plot_path(path)
+
+        plt.scatter(self.start.x, self.start.y, color="green", marker="o", s=100)
+        plt.scatter(self.goal.x, self.goal.y, color="blue", marker="o", s=100)
+
+        plt.title("Rapidly Exploring Random Trees (RRT) with Obstacles")
+        plt.xlabel("X-axis")
+        plt.ylabel("Y-axis")
+        plt.show()
+
+if __name__ == "__main__":
+    # Obstacles represented as [(x, y, radius)]
+    obstacles = [(5, 5, 1), (3, 6, 2), (3, 8, 2), (3, 10, 2), (7, 5, 2), (9, 5, 2), (8, 10, 1)]
+
+    start_position = (0, 0)
+    goal_position = (6.0, 10.0)
+
+    rrt = RRT(start_position, goal_position, obstacles)
+    rrt.find_path()
+    rrt.plot_rrt()
